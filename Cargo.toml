@@ -1,0 +1,12 @@
+[package]
+name = "air2"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4.19"
+rstest = "0.12.0"
+range = { git = "https://github.com/kano1101/range.git" }
+transaction-diesel-mysql = { git = "https://github.com/kano1101/transaction-diesel-mysql.git" }
