@@ -1,9 +1,12 @@
+#[macro_use]
+extern crate diesel;
 extern crate range;
 extern crate rstest;
 extern crate transaction_diesel_mysql;
 
 mod amazon_browser;
 mod item;
+mod schema;
 
 fn main() {
     println!("Hello, world!");
