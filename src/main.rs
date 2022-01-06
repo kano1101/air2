@@ -44,16 +44,23 @@ mod tests {
         use crate::transaction::with_ctx;
         use diesel::result::Error;
 
+        let new_name = "keen";
+        let update_name = "KeenS";
+
+        let new_item = NewItem {
+            hash: "0000",
+            name: new_name,
+        };
+
         let conn = establish_connection();
+
         let tx = with_ctx(|ctx| -> Result<(), Error> {
-            let item = item::create(&NewItem {
-                hash: "0000",
-                name: "keen",
-            })
-            .run(ctx)?;
-            println!("created item: {:?}", item);
+            let item = item::create(&new_item).run(ctx)?;
+            assert_ne!(item.id, 0);
+            assert_eq!(item.name, new_name);
+
             let edit_item = Item {
-                name: "KeenS".to_string(),
+                name: update_name.to_string(),
                 ..item
             };
             let res = item::update(edit_item).run(ctx)?;
@@ -71,6 +78,7 @@ mod tests {
                 }
                 Some(u) => u,
             };
+            assert_eq!(updated_item.name, update_name);
 
             println!("updated item: {:?}", updated_item);
             match item::delete(updated_item.id).run(ctx)? {
