@@ -44,8 +44,8 @@ mod tests {
     }
     #[test]
     fn アマゾンの購入履歴を期間を指定して取得() {
-        use range::Range;
-        let range = Range::new("2021-10-01", "2021-04-01");
+        // use range::Range;
+        // let range = Range::new("2021-10-01", "2021-04-01");
         // let browser = AmazonBrowser::new(range);
         // assert_eq!(browser.valid_with_date(), true);
     }
