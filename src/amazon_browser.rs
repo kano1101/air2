@@ -10,10 +10,16 @@ impl AmazonBrowser {
     pub fn new(range: Range) -> Self {
         Self { range: range }
     }
-    pub fn valid_with_date(&self) -> bool {
-        let today = Local::today().naive_local().format("%Y-%m-%d").to_string();
-        // todayがendの日の場合はアウト
-        self.range.end_after(&today)
+}
+
+pub fn wakeup_browser(range: Range) -> Option<AmazonBrowser> {
+    let today = Local::today().naive_local().format("%Y-%m-%d").to_string();
+    // todayがendの日の場合はアウト
+    let validity = range.end_after(&today);
+    if validity {
+        Some(AmazonBrowser::new(range))
+    } else {
+        None
     }
 }
 
@@ -30,7 +36,7 @@ mod tests {
         end_offset: i64,
         result: bool,
     ) {
-        use crate::amazon_browser::AmazonBrowser;
+        use crate::amazon_browser::wakeup_browser;
         use chrono::{Duration, Local};
         use range::Range;
         let end_date = (Local::today() + Duration::days(end_offset))
@@ -38,9 +44,9 @@ mod tests {
             .format("%Y-%m-%d")
             .to_string();
         let range = Range::new(&end_date, "2021-04-01");
-        let browser = AmazonBrowser::new(range);
+        let browser = wakeup_browser(range);
         // 未来日、今日（Today）が含まれているのでエラー
-        assert_eq!(browser.valid_with_date(), result);
+        assert_eq!(browser.is_some(), result);
     }
     #[test]
     fn アマゾンの購入履歴を期間を指定して取得() {
