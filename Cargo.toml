@@ -10,3 +10,6 @@ chrono = "0.4.19"
 rstest = "0.12.0"
 range = { git = "https://github.com/kano1101/range.git" }
 transaction-diesel-mysql = { git = "https://github.com/kano1101/transaction-diesel-mysql.git" }
+diesel = { version = "1.4.8", features = ["mysql"] }
+transaction = "0.2.1"
+dotenv = "0.15.0"
