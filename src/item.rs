@@ -63,3 +63,61 @@ pub fn delete<'a>(id: i32) -> BoxTx<'a, Option<()>> {
     })
     .boxed()
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn itemのcrudの確認() {
+        use crate::item;
+        use crate::item::{Item, NewItem};
+        use crate::transaction::with_ctx;
+        use crate::utils::establish_connection;
+        use diesel::result::Error;
+
+        let conn = establish_connection();
+
+        let new_name = "keen";
+        let update_name = "KeenS";
+
+        let new_item = NewItem {
+            hash: "0000",
+            name: new_name,
+        };
+
+        let tx = with_ctx(|ctx| -> Result<(), Error> {
+            let item = item::create(&new_item).run(ctx)?;
+            assert_ne!(item.id, 0);
+            assert_eq!(item.name, new_name);
+
+            let edit_item = Item {
+                name: update_name.to_string(),
+                ..item
+            };
+            let res = item::update(edit_item).run(ctx)?;
+            match res {
+                None => {
+                    println!("item not found");
+                    return Ok(());
+                }
+                Some(()) => (),
+            };
+            let updated_item = match item::find(item.id).run(ctx)? {
+                None => {
+                    println!("item not found");
+                    return Ok(());
+                }
+                Some(u) => u,
+            };
+            assert_eq!(updated_item.name, update_name);
+
+            match item::delete(updated_item.id).run(ctx)? {
+                None => {
+                    println!("item not found");
+                }
+                Some(()) => (),
+            };
+            Ok(())
+        });
+        transaction_diesel_mysql::run(&conn, tx).unwrap()
+    }
+}
