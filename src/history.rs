@@ -91,18 +91,19 @@ mod tests {
 
         let mut item_id;
 
-        let item_tx = with_ctx(|ctx| -> Result<(), Error> {
-            use crate::item;
-            use crate::item::{Item, NewItem};
+        {
+            use crate::item::NewItem;
             let new_item = NewItem {
                 hash: "1000",
                 name: "Aqun",
             };
-            let item = item::create(&new_item).run(ctx)?;
-            item_id = item.id;
-            Ok(())
-        });
-        transaction_diesel_mysql::run(&conn, item_tx).unwrap();
+            let item_tx = with_ctx(|ctx| -> Result<i32, Error> {
+                use crate::item;
+                let item = item::create(&new_item).run(ctx)?;
+                Ok(item.id)
+            });
+            item_id = transaction_diesel_mysql::run(&conn, item_tx).unwrap()
+        }
 
         let new_price = 42;
         let update_price = 35;

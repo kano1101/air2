@@ -1,9 +1,9 @@
 table! {
     histories (id) {
         id -> Integer,
-        item_id -> Nullable<Integer>,
-        price -> Nullable<Integer>,
-        purchased_at -> Nullable<Varchar>,
+        item_id -> Integer,
+        price -> Integer,
+        purchased_at -> Varchar,
     }
 }
 
