@@ -72,12 +72,6 @@ pub fn delete<'a>(id: i32) -> BoxTx<'a, Option<()>> {
 
 #[cfg(test)]
 mod tests {
-    use rstest::*;
-
-    #[test]
-    fn 初期動作確認() {
-        assert_eq!(1, 1);
-    }
     #[test]
     fn historyのcrudの確認() {
         use crate::history;
@@ -89,7 +83,7 @@ mod tests {
 
         let conn = establish_connection();
 
-        let mut item_id;
+        let item_id;
 
         {
             use crate::item::NewItem;
