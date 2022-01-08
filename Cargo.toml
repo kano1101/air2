@@ -14,3 +14,4 @@ diesel = { version = "1.4.8", features = ["mysql"] }
 transaction = "0.2.1"
 dotenv = "0.15.0"
 amazon-log = { git = "https://github.com/kano1101/amazon-log.git" }
+tokio = "1.15.0"

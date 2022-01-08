@@ -18,8 +18,20 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn 初期動作確認() {
-        assert_eq!(1, 1);
+    use amazon_log::{AmazonBrowser, AmazonBrowserResult, Log};
+    use tokio;
+    #[tokio::test]
+    async fn amazon_logチェック() -> AmazonBrowserResult<()> {
+        use dotenv::dotenv;
+        use range::Range;
+        use std::env;
+        dotenv().ok();
+        let email = env::var("AMAZON_EMAIL").expect("AMAZON_EMAIL must be set");
+        let pass = env::var("AMAZON_PASSWORD").expect("AMAZON_PASSWORD must be set");
+        let mut b = AmazonBrowser::new(&email, &pass, "air2").await?;
+        let r = Range::new("2021-11-08", "2021-10-21");
+        let logs = b.extract(&r).await?;
+        assert_eq!(logs.len(), 2);
+        Ok(())
     }
 }
