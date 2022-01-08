@@ -3,17 +3,22 @@ extern crate diesel;
 extern crate amazon_log;
 extern crate dotenv;
 extern crate range;
-extern crate rstest;
+extern crate tokio;
 extern crate transaction;
 extern crate transaction_diesel_mysql;
 
+mod business;
 mod history;
 mod item;
 mod schema;
 mod utils;
 
-fn main() {
-    println!("Hello, world!");
+#[tokio::main]
+async fn main() {
+    use crate::business::difference_log;
+    let logs = difference_log().await.unwrap();
+    logs.iter().for_each(|log| println!("{:?}", log));
+    println!("{}個の履歴が見つかりました。", logs.len());
 }
 
 #[cfg(test)]
