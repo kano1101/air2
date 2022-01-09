@@ -10,6 +10,15 @@ use transaction_diesel_mysql::{with_conn, DieselContext};
 type Ctx<'a> = DieselContext<'a, MysqlConnection>;
 type BoxTx<'a, T> = Box<dyn Transaction<Ctx = Ctx<'a>, Item = T, Err = Error> + 'a>;
 
+async fn wakeup_browser() -> AmazonBrowserResult<AmazonBrowser> {
+    use dotenv::dotenv;
+    use std::env;
+    dotenv().ok();
+    let email = env::var("AMAZON_EMAIL").expect("AMAZON_EMAIL must be set");
+    let pass = env::var("AMAZON_PASSWORD").expect("AMAZON_PASSWORD must be set");
+    let browser = AmazonBrowser::new(&email, &pass, "air2_release").await?;
+    Ok(browser)
+}
 fn most_recently_history<'a>() -> BoxTx<'a, History> {
     use crate::schema::histories::dsl;
     use crate::schema::histories::table;
@@ -25,12 +34,12 @@ fn yesterday() -> String {
 fn difference_period_range(history: &History) -> Range {
     Range::new(&history.purchased_at, &yesterday())
 }
+async fn most_formerly_date() -> AmazonBrowserResult<String> {
+    let mut browser = wakeup_browser().await?;
+    browser.most_formerly_date().await?
+}
 pub async fn difference_log() -> AmazonBrowserResult<Vec<Log>> {
     use crate::utils::establish_connection;
-    use dotenv::dotenv;
-    use std::env;
-
-    dotenv().ok();
 
     let tx = with_ctx(|ctx| -> Result<History, Error> { most_recently_history().run(ctx) });
     let cn = establish_connection();
@@ -40,10 +49,7 @@ pub async fn difference_log() -> AmazonBrowserResult<Vec<Log>> {
         Err(_) => Range::new("2018-01-14", &yesterday()),
     };
 
-    let email = env::var("AMAZON_EMAIL").expect("AMAZON_EMAIL must be set");
-    let pass = env::var("AMAZON_PASSWORD").expect("AMAZON_PASSWORD must be set");
-
-    let mut browser = AmazonBrowser::new(&email, &pass, "air2_release").await?;
+    let mut browser = wakeup_browser().await?;
     let logs = browser.extract(&diff_range).await?;
     browser.quit().await?;
 
