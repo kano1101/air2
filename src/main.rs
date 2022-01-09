@@ -21,8 +21,6 @@ async fn main() {
     logs.iter().for_each(|log| println!("{:?}", log));
     println!("{}個の履歴が見つかりました。", logs.len());
 
-    // let max_len = logs.sort_by(|a, b| b.name.len() < a.name.len()).first();
-    // use std::Iterator::max_by_key;
     let max_name_log = logs.iter().max_by_key(|log| log.name.len()).unwrap();
     let max_len = max_name_log.name.len();
     println!("最大のnameバイト数は「{}」です。", max_len);
