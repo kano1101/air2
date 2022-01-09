@@ -86,8 +86,22 @@ mod tests {
         let item_id;
 
         {
+            let category_id;
+
+            {
+                use crate::category::NewCategory;
+                let new_category = NewCategory { name: "CATEGORY" };
+                let category_tx = with_ctx(|ctx| -> Result<i32, Error> {
+                    use crate::category;
+                    let category = category::create(&new_category).run(ctx)?;
+                    Ok(category.id)
+                });
+                category_id = transaction_diesel_mysql::run(&conn, category_tx).unwrap()
+            }
+
             use crate::item::NewItem;
             let new_item = NewItem {
+                category_id: category_id,
                 hash: "1000",
                 name: "Aqun",
             };

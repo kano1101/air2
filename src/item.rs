@@ -3,6 +3,7 @@ use crate::schema::*;
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Hash, Queryable)]
 pub struct Item {
     pub id: i32,
+    pub category_id: i32,
     pub hash: String,
     pub name: String,
 }
@@ -10,6 +11,7 @@ pub struct Item {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Hash, Insertable)]
 #[table_name = "items"]
 pub struct NewItem<'a> {
+    pub category_id: i32,
     pub hash: &'a str,
     pub name: &'a str,
 }
@@ -45,7 +47,11 @@ pub fn update<'a>(edit: Item) -> BoxTx<'a, Option<()>> {
     with_conn(move |cn| {
         let edit = edit.clone(); // TODO: 本当はclone()したくない
         diesel::update(dsl::items.find(edit.id))
-            .set((items::hash.eq(edit.hash), items::name.eq(edit.name)))
+            .set((
+                items::category_id.eq(edit.category_id),
+                items::hash.eq(edit.hash),
+                items::name.eq(edit.name),
+            ))
             .execute(cn)
             .map(|_| ())
             .optional()
@@ -76,10 +82,24 @@ mod tests {
 
         let conn = establish_connection();
 
+        let category_id;
+
+        {
+            use crate::category::NewCategory;
+            let new_category = NewCategory { name: "CATEGORY" };
+            let category_tx = with_ctx(|ctx| -> Result<i32, Error> {
+                use crate::category;
+                let category = category::create(&new_category).run(ctx)?;
+                Ok(category.id)
+            });
+            category_id = transaction_diesel_mysql::run(&conn, category_tx).unwrap()
+        }
+
         let new_name = "keen";
         let update_name = "KeenS";
 
         let new_item = NewItem {
+            category_id: category_id,
             hash: "0000",
             name: new_name,
         };

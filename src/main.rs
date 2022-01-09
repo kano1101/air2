@@ -8,6 +8,7 @@ extern crate transaction;
 extern crate transaction_diesel_mysql;
 
 mod business;
+mod category;
 mod history;
 mod item;
 mod schema;
