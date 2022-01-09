@@ -37,9 +37,8 @@ pub async fn difference_log() -> AmazonBrowserResult<Vec<Log>> {
 
     let diff_range = match transaction_diesel_mysql::run(&cn, tx) {
         Ok(history) => difference_period_range(&history),
-        Err(NotFound) => Range::new("2018-01-14", &yesterday()),
+        Err(_) => Range::new("2018-01-14", &yesterday()),
         // Err(NotFound) => Range::new("2021-11-08", &yesterday()),
-        _ => panic!("例外的なエラーです。"),
     };
 
     let email = env::var("AMAZON_EMAIL").expect("AMAZON_EMAIL must be set");

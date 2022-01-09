@@ -148,13 +148,15 @@ mod tests {
             };
             assert_eq!(updated_history.price, update_price);
 
-            println!("updated history: {:?}", updated_history);
-            match history::delete(updated_history.id).run(ctx)? {
-                None => {
-                    println!("history not found");
-                }
-                Some(()) => (),
-            };
+            use crate::category;
+            use crate::item;
+            let delete_history = updated_history;
+            let delete_item = item::find(delete_history.item_id).run(ctx)?.unwrap();
+            let delete_category = category::find(delete_item.category_id).run(ctx)?.unwrap();
+            history::delete(delete_history.id).run(ctx)?;
+            item::delete(delete_item.id).run(ctx)?;
+            category::delete(delete_category.id).run(ctx)?;
+
             Ok(())
         });
         transaction_diesel_mysql::run(&conn, tx).unwrap()

@@ -20,12 +20,19 @@ async fn main() {
     let logs = difference_log().await.unwrap();
     logs.iter().for_each(|log| println!("{:?}", log));
     println!("{}個の履歴が見つかりました。", logs.len());
+
+    // let max_len = logs.sort_by(|a, b| b.name.len() < a.name.len()).first();
+    // use std::Iterator::max_by_key;
+    let max_name_log = logs.iter().max_by_key(|log| log.name.len()).unwrap();
+    let max_len = max_name_log.name.len();
+    println!("最大のnameバイト数は「{}」です。", max_len);
 }
 
 #[cfg(test)]
 mod tests {
-    use amazon_log::{AmazonBrowser, AmazonBrowserResult, Log};
+    use amazon_log::{AmazonBrowser, AmazonBrowserResult};
     use tokio;
+    #[ignore]
     #[tokio::test]
     async fn amazon_logチェック() -> AmazonBrowserResult<()> {
         use dotenv::dotenv;
@@ -37,6 +44,7 @@ mod tests {
         let mut b = AmazonBrowser::new(&email, &pass, "air2").await?;
         let r = Range::new("2021-11-08", "2021-10-21");
         let logs = b.extract(&r).await?;
+        b.quit().await?;
         assert_eq!(logs.len(), 2);
         Ok(())
     }

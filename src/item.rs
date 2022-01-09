@@ -130,12 +130,12 @@ mod tests {
             };
             assert_eq!(updated_item.name, update_name);
 
-            match item::delete(updated_item.id).run(ctx)? {
-                None => {
-                    println!("item not found");
-                }
-                Some(()) => (),
-            };
+            use crate::category;
+            let delete_item = updated_item;
+            let delete_category = category::find(delete_item.category_id).run(ctx)?.unwrap();
+            item::delete(delete_item.id).run(ctx)?;
+            category::delete(delete_category.id).run(ctx)?;
+
             Ok(())
         });
         transaction_diesel_mysql::run(&conn, tx).unwrap()
