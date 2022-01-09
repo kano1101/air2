@@ -10,7 +10,7 @@ use transaction_diesel_mysql::{with_conn, DieselContext};
 type Ctx<'a> = DieselContext<'a, MysqlConnection>;
 type BoxTx<'a, T> = Box<dyn Transaction<Ctx = Ctx<'a>, Item = T, Err = Error> + 'a>;
 
-fn most_reacently_history<'a>() -> BoxTx<'a, History> {
+fn most_recently_history<'a>() -> BoxTx<'a, History> {
     use crate::schema::histories::dsl;
     use crate::schema::histories::table;
     with_conn(move |cn| table.order(dsl::purchased_at.desc()).limit(1).first(cn)).boxed()
@@ -32,7 +32,7 @@ pub async fn difference_log() -> AmazonBrowserResult<Vec<Log>> {
 
     dotenv().ok();
 
-    let tx = with_ctx(|ctx| -> Result<History, Error> { most_reacently_history().run(ctx) });
+    let tx = with_ctx(|ctx| -> Result<History, Error> { most_recently_history().run(ctx) });
     let cn = establish_connection();
 
     let diff_range = match transaction_diesel_mysql::run(&cn, tx) {
