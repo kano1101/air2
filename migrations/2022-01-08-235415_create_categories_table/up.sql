@@ -1,7 +1,6 @@
 -- Your SQL goes here
-CREATE TABLE items
+CREATE TABLE categories
 (
   id INTEGER AUTO_INCREMENT PRIMARY KEY NOT NULL,
-  hash VARCHAR(128) NOT NULL,
   name VARCHAR(128) NOT NULL
 );
