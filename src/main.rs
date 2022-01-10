@@ -80,9 +80,11 @@ async fn main() -> AmazonBrowserResult<()> {
     let logs_count = db_logs.len();
     println!("取扱件数は{}件です。", logs_count);
 
-    db_logs.iter().for_each(|db_log| {
-        println!("{:?}", db_log);
-    });
+    // iced
+
+    // db_logs.iter().for_each(|db_log| {
+    //     println!("{:?}", db_log);
+    // });
 
     Ok(())
 }
