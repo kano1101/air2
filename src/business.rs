@@ -1,5 +1,5 @@
-use crate::history::History;
-use amazon_log::{AmazonBrowser, AmazonBrowserResult, Log};
+use crate::log::Log;
+use amazon_log::{AmazonBrowser, AmazonBrowserResult};
 use diesel::prelude::*;
 use diesel::result::Error;
 use diesel::MysqlConnection;
@@ -19,43 +19,31 @@ async fn wakeup_browser() -> AmazonBrowserResult<AmazonBrowser> {
     let browser = AmazonBrowser::new(&email, &pass, "air2_release").await?;
     Ok(browser)
 }
-fn most_recently_history<'a>() -> BoxTx<'a, History> {
-    use crate::schema::histories::dsl;
-    use crate::schema::histories::table;
+pub fn most_recently_log<'a>() -> BoxTx<'a, Log> {
+    use crate::schema::logs::dsl;
+    use crate::schema::logs::table;
     with_conn(move |cn| table.order(dsl::purchased_at.desc()).limit(1).first(cn)).boxed()
 }
-fn yesterday() -> String {
+pub fn next_day(date_str: String) -> String {
+    use chrono::{Duration, NaiveDate};
+    (NaiveDate::parse_from_str(&date_str, "%Y-%m-%d").unwrap() + Duration::days(1))
+        .format("%Y-%m-%d")
+        .to_string()
+}
+pub fn yesterday() -> String {
     use chrono::{Duration, Local};
     (Local::today() + Duration::days(-1))
         .naive_local()
         .format("%Y-%m-%d")
         .to_string()
 }
-fn difference_period_range(history: &History) -> Range {
-    Range::new(&history.purchased_at, &yesterday())
-}
-async fn most_formerly_date() -> AmazonBrowserResult<String> {
+pub async fn most_formerly_date() -> AmazonBrowserResult<String> {
     let mut browser = wakeup_browser().await?;
     let result = browser.most_formerly_date().await?;
     browser.quit().await?;
     Ok(result)
-    // Ok("2018-01-01".to_string())
 }
-pub async fn difference_log() -> AmazonBrowserResult<Vec<Log>> {
-    use crate::utils::establish_connection;
-
-    let tx = with_ctx(|ctx| -> Result<History, Error> { most_recently_history().run(ctx) });
-    let cn = establish_connection();
-
-    let most_formerly_date = &most_formerly_date().await?;
-
-    assert_eq!(most_formerly_date, "2018-01-01");
-
-    let diff_range = match transaction_diesel_mysql::run(&cn, tx) {
-        Ok(history) => difference_period_range(&history),
-        Err(_) => Range::new(most_formerly_date, &yesterday()),
-    };
-
+pub async fn difference_log(diff_range: Range) -> AmazonBrowserResult<Vec<amazon_log::Log>> {
     let mut browser = wakeup_browser().await?;
     let logs = browser.extract(&diff_range).await?;
     browser.quit().await?;
