@@ -20,34 +20,35 @@ use crate::amazon_log::AmazonBrowserResult;
 #[tokio::main]
 async fn main() -> AmazonBrowserResult<()> {
     use crate::business::{most_formerly_date, most_recently_log, next_day, yesterday};
-    use crate::log::Log;
-    use crate::utils::establish_connection;
-    use range::Range;
     use transaction::with_ctx;
 
     let most_formerly_date = &most_formerly_date().await?;
     assert_eq!(most_formerly_date, "2018-01-01");
 
+    use crate::utils::establish_connection;
     let cn = establish_connection();
-    let tx = with_ctx(|ctx| -> Result<Log, _> { most_recently_log().run(ctx) });
 
+    // DB内の最新情報とブラウザ上の最古の情報からスクレイピング範囲を決定
+    use range::Range;
+    let tx = with_ctx(|ctx| -> Result<log::Log, _> { most_recently_log().run(ctx) });
     let diff_range = match transaction_diesel_mysql::run(&cn, tx) {
         Ok(log) => Range::new(&yesterday(), &next_day(log.purchased_at)),
         Err(_) => Range::new(&yesterday(), most_formerly_date),
     };
+    println!("start: {}\nend  : {}", diff_range.start(), diff_range.end());
 
-    println!("start: {}, end: {}", diff_range.start(), diff_range.end());
+    // ブラウザから、決定した範囲の履歴(amazon_log::Log)をスクレイピングして取得
+    use amazon_log;
+    let amazon_logs: Vec<amazon_log::Log> = difference_log(diff_range).await?;
+    amazon_logs.iter().for_each(|log| println!("{:?}", log));
+    println!(
+        "{}個の追加が必要な履歴が見つかりました。",
+        amazon_logs.len()
+    );
 
-    use crate::business::difference_log;
-    let logs = difference_log(diff_range).await.unwrap();
-    logs.iter().for_each(|log| println!("{:?}", log));
-    println!("{}個の履歴が見つかりました。", logs.len());
-
-    let max_len = logs.iter().map(|log| log.name.len()).max().unwrap_or(0);
-    println!("最大のnameバイト数は「{}」です。", max_len);
-
+    // amazon_log::Logをlog::Logに変換(厳密にはDBに保存したらlog::Logになるので今はlog::NewLog)
     use crate::log::NewLog;
-    let new_logs = logs
+    let new_logs: Vec<NewLog> = amazon_logs
         .iter()
         .map(|log| NewLog {
             hash: &log.hash,
@@ -55,9 +56,8 @@ async fn main() -> AmazonBrowserResult<()> {
             price: log.price,
             purchased_at: &log.purchased_at,
         })
-        .collect::<Vec<NewLog>>();
+        .collect();
 
-    use crate::log;
     use diesel::result::Error;
     let tx = with_ctx(|ctx| -> Result<(), Error> {
         for new_log in new_logs.iter() {
@@ -67,6 +67,23 @@ async fn main() -> AmazonBrowserResult<()> {
         Ok(())
     });
     transaction_diesel_mysql::run(&cn, tx).unwrap();
+
+    // DB内の全ログ(log::Log)を取得
+    use crate::business::difference_log;
+    use crate::log;
+    let tx = with_ctx(|ctx| log::all().run(ctx));
+    let db_logs = transaction_diesel_mysql::run(&cn, tx).unwrap_or(vec![]);
+
+    let max_len = db_logs.iter().map(|log| log.name.len()).max().unwrap_or(0);
+    println!("最大のnameバイト数は「{}」です。", max_len);
+
+    let logs_count = db_logs.len();
+    println!("取扱件数は{}件です。", logs_count);
+
+    db_logs.iter().for_each(|db_log| {
+        println!("{:?}", db_log);
+    });
+
     Ok(())
 }
 

@@ -25,6 +25,11 @@ use transaction_diesel_mysql::{with_conn, DieselContext};
 type Ctx<'a> = DieselContext<'a, MysqlConnection>;
 type BoxTx<'a, T> = Box<dyn Transaction<Ctx = Ctx<'a>, Item = T, Err = Error> + 'a>;
 
+pub fn all<'a>() -> BoxTx<'a, Vec<History>> {
+    use crate::schema::histories::dsl::histories;
+    with_conn(move |cn| histories.load::<History>(cn)).boxed()
+}
+
 pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, History> {
     use crate::schema::histories::table;
     with_conn(move |cn| {

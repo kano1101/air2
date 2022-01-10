@@ -27,6 +27,11 @@ use transaction_diesel_mysql::{with_conn, DieselContext};
 type Ctx<'a> = DieselContext<'a, MysqlConnection>;
 type BoxTx<'a, T> = Box<dyn Transaction<Ctx = Ctx<'a>, Item = T, Err = Error> + 'a>;
 
+pub fn all<'a>() -> BoxTx<'a, Vec<Log>> {
+    use crate::schema::logs::dsl::logs;
+    with_conn(move |cn| logs.load::<Log>(cn)).boxed()
+}
+
 pub fn create<'a>(new: &'a NewLog) -> BoxTx<'a, Log> {
     use crate::schema::logs::table;
     with_conn(move |cn| {
