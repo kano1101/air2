@@ -78,7 +78,6 @@ mod tests {
         use crate::history::{History, NewHistory};
         use crate::transaction::with_ctx;
         use crate::utils::establish_connection;
-        // use chrono::{Duration, Local};
         use diesel::result::Error;
 
         let conn = establish_connection();

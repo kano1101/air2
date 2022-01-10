@@ -1,0 +1,9 @@
+-- Your SQL goes here
+CREATE TABLE logs
+(
+  id INTEGER AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  hash VARCHAR(128) NOT NULL,
+  name VARCHAR(1024) NOT NULL,
+  price INTEGER NOT NULL,
+  purchased_at VARCHAR(128) NOT NULL
+);
