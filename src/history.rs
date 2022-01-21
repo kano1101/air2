@@ -30,7 +30,7 @@ pub fn all<'a>() -> BoxTx<'a, Vec<History>> {
     with_conn(move |cn| histories.load::<History>(cn)).boxed()
 }
 
-pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, Option<History>> {
+pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, History> {
     use crate::schema::histories::table;
     with_conn(move |cn| {
         diesel::insert_into(table).values(new).execute(cn)?;
@@ -38,7 +38,6 @@ pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, Option<History>> {
             .order(crate::schema::histories::id.desc())
             .limit(1)
             .first(cn)
-            .optional()
     })
     .boxed()
 }
@@ -99,7 +98,7 @@ mod tests {
                 let category_tx = with_ctx(|ctx| -> Result<i32, Error> {
                     use crate::category;
                     let category = category::create(&new_category).run(ctx)?;
-                    Ok(category.id)
+                    Ok(category.unwrap().id)
                 });
                 category_id = transaction_diesel_mysql::run(&conn, category_tx).unwrap()
             }
