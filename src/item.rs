@@ -30,7 +30,7 @@ pub fn all<'a>() -> BoxTx<'a, Vec<Item>> {
     with_conn(move |cn| items.load::<Item>(cn)).boxed()
 }
 
-pub fn create<'a>(new: &'a NewItem) -> BoxTx<'a, Item> {
+pub fn create<'a>(new: &'a NewItem) -> BoxTx<'a, Option<Item>> {
     use crate::schema::items::table;
     with_conn(move |cn| {
         diesel::insert_into(table).values(new).execute(cn)?;
@@ -38,6 +38,7 @@ pub fn create<'a>(new: &'a NewItem) -> BoxTx<'a, Item> {
             .order(crate::schema::items::id.desc())
             .limit(1)
             .first(cn)
+            .optional()
     })
     .boxed()
 }

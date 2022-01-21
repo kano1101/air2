@@ -30,7 +30,7 @@ pub fn all<'a>() -> BoxTx<'a, Vec<History>> {
     with_conn(move |cn| histories.load::<History>(cn)).boxed()
 }
 
-pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, History> {
+pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, Option<History>> {
     use crate::schema::histories::table;
     with_conn(move |cn| {
         diesel::insert_into(table).values(new).execute(cn)?;
@@ -38,6 +38,7 @@ pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, History> {
             .order(crate::schema::histories::id.desc())
             .limit(1)
             .first(cn)
+            .optional()
     })
     .boxed()
 }

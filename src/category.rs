@@ -33,11 +33,11 @@ pub fn all<'a>() -> BoxTx<'a, Vec<Category>> {
     with_conn(move |cn| categories.load::<Category>(cn)).boxed()
 }
 
-pub fn create<'a>(new: &'a NewCategory) -> BoxTx<'a, Category> {
+pub fn create<'a>(new: &'a NewCategory) -> BoxTx<'a, Option<Category>> {
     use crate::schema::categories::{id, table};
     with_conn(move |cn| {
         diesel::insert_into(table).values(new).execute(cn)?;
-        table.order(id.desc()).limit(1).first(cn)
+        table.order(id.desc()).limit(1).first(cn).optional()
     })
     .boxed()
 }
@@ -85,6 +85,8 @@ mod tests {
         use crate::transaction::with_ctx;
         use crate::utils::establish_connection;
         use diesel::result::Error;
+        // use mdo::{iter::*, *};
+        use transaction::Transaction;
 
         let conn = establish_connection();
 
@@ -94,38 +96,35 @@ mod tests {
         let new_category = NewCategory { name: new_name };
 
         let tx = with_ctx(|ctx| -> Result<(), Error> {
-            let category = category::create(&new_category).run(ctx)?;
-            assert_ne!(category.id, 0);
-            assert_eq!(category.name, new_name);
+            let tx = category::create(&new_category).and_then(move |Some(category)| {
+                assert_eq!(category.name, new_name);
+                let edit_category = Category {
+                    name: update_name.to_string(),
+                    ..category
+                };
+                category::update(edit_category).and_then(move |Some(())| {
+                    category::find(category.id).and_then(move |Some(updated_category)| {
+                        assert_eq!(updated_category.name, update_name);
+                        category::delete(updated_category.id)
+                    })
+                })
+            });
+            tx.run(ctx).unwrap().ok_or(Error::NotFound)
+            // let tx = mdo! {
+            //     category =<< category::create(&new_category);
+            //     // assert_eq!(category.name, new_name);
 
-            let edit_category = Category {
-                name: update_name.to_string(),
-                ..category
-            };
-            let res = category::update(edit_category).run(ctx)?;
-            match res {
-                None => {
-                    println!("category not found");
-                    return Ok(());
-                }
-                Some(()) => (),
-            };
-            let updated_category = match category::find(category.id).run(ctx)? {
-                None => {
-                    println!("category not found");
-                    return Ok(());
-                }
-                Some(u) => u,
-            };
-            assert_eq!(updated_category.name, update_name);
+            //     let edit_category = Category {
+            //         name: update_name.to_string(),
+            //         ..category
+            //     };
+            //     () =<< category::update(edit_category);
+            //     updated_category =<< category::find(category.id);
+            //     // assert_eq!(updated_category.name, update_name);
 
-            match category::delete(updated_category.id).run(ctx)? {
-                None => {
-                    println!("category not found");
-                }
-                Some(()) => (),
-            };
-            Ok(())
+            //     ret category::delete(updated_category.id)
+            // };
+            // tx.run(ctx);
         });
         transaction_diesel_mysql::run(&conn, tx).unwrap()
     }

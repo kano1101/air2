@@ -32,7 +32,7 @@ pub fn all<'a>() -> BoxTx<'a, Vec<Log>> {
     with_conn(move |cn| logs.load::<Log>(cn)).boxed()
 }
 
-pub fn create<'a>(new: &'a NewLog) -> BoxTx<'a, Log> {
+pub fn create<'a>(new: &'a NewLog) -> BoxTx<'a, Option<Log>> {
     use crate::schema::logs::table;
     with_conn(move |cn| {
         diesel::insert_into(table).values(new).execute(cn)?;
@@ -40,6 +40,7 @@ pub fn create<'a>(new: &'a NewLog) -> BoxTx<'a, Log> {
             .order(crate::schema::logs::id.desc())
             .limit(1)
             .first(cn)
+            .optional()
     })
     .boxed()
 }
