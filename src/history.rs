@@ -98,7 +98,7 @@ mod tests {
                 let category_tx = with_ctx(|ctx| -> Result<i32, Error> {
                     use crate::category;
                     let category = category::create(&new_category).run(ctx)?;
-                    Ok(category.unwrap().id)
+                    Ok(category.id)
                 });
                 category_id = transaction_diesel_mysql::run(&conn, category_tx).unwrap()
             }
@@ -156,7 +156,7 @@ mod tests {
             use crate::item;
             let delete_history = updated_history;
             let delete_item = item::find(delete_history.item_id).run(ctx)?.unwrap();
-            let delete_category = category::find(delete_item.category_id).run(ctx)?.unwrap();
+            let delete_category = category::find(delete_item.category_id).run(ctx)?;
             history::delete(delete_history.id).run(ctx)?;
             item::delete(delete_item.id).run(ctx)?;
             category::delete(delete_category.id).run(ctx)?;

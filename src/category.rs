@@ -33,26 +33,26 @@ pub fn all<'a>() -> BoxTx<'a, Vec<Category>> {
     with_conn(move |cn| categories.load::<Category>(cn)).boxed()
 }
 
-pub fn create<'a>(new: &'a NewCategory) -> BoxTx<'a, Option<Category>> {
+pub fn create<'a>(new: &'a NewCategory) -> BoxTx<'a, Category> {
     use crate::schema::categories::{id, table};
     with_conn(move |cn| {
         diesel::insert_into(table).values(new).execute(cn)?;
-        table.order(id.desc()).limit(1).first(cn).optional()
+        table.order(id.desc()).limit(1).first(cn)
     })
     .boxed()
 }
 
-pub fn find<'a>(id: i32) -> BoxTx<'a, Option<Category>> {
+pub fn find<'a>(id: i32) -> BoxTx<'a, Category> {
     use crate::schema::categories::dsl::categories;
-    with_conn(move |cn| categories.find(id).get_result(cn).optional()).boxed()
+    with_conn(move |cn| categories.find(id).get_result(cn)).boxed()
 }
 
-pub fn filter<'a>(name: &'a str) -> BoxTx<'a, Option<Category>> {
+pub fn filter<'a>(name: &'a str) -> BoxTx<'a, Category> {
     use crate::schema::categories::{name, table};
-    with_conn(move |cn| table.filter(name.eq(name)).first(cn).optional()).boxed()
+    with_conn(move |cn| table.filter(name.eq(name)).first(cn)).boxed()
 }
 
-pub fn update<'a>(edit: Category) -> BoxTx<'a, Option<()>> {
+pub fn update<'a>(edit: Category) -> BoxTx<'a, ()> {
     use crate::schema::categories::dsl;
     with_conn(move |cn| {
         let edit = edit.clone(); // TODO: 本当はclone()したくない
@@ -60,20 +60,13 @@ pub fn update<'a>(edit: Category) -> BoxTx<'a, Option<()>> {
             .set((categories::name.eq(edit.name),))
             .execute(cn)
             .map(|_| ())
-            .optional()
     })
     .boxed()
 }
 
-pub fn delete<'a>(id: i32) -> BoxTx<'a, Option<()>> {
+pub fn delete<'a>(id: i32) -> BoxTx<'a, ()> {
     use crate::schema::categories::dsl::categories;
-    with_conn(move |cn| {
-        diesel::delete(categories.find(id))
-            .execute(cn)
-            .map(|_| ())
-            .optional()
-    })
-    .boxed()
+    with_conn(move |cn| diesel::delete(categories.find(id)).execute(cn).map(|_| ())).boxed()
 }
 
 #[cfg(test)]
@@ -96,20 +89,20 @@ mod tests {
         let new_category = NewCategory { name: new_name };
 
         let tx = with_ctx(|ctx| -> Result<(), Error> {
-            let tx = category::create(&new_category).and_then(move |Some(category)| {
+            let tx = category::create(&new_category).and_then(move |category| {
                 assert_eq!(category.name, new_name);
                 let edit_category = Category {
                     name: update_name.to_string(),
                     ..category
                 };
-                category::update(edit_category).and_then(move |Some(())| {
-                    category::find(category.id).and_then(move |Some(updated_category)| {
+                category::update(edit_category).and_then(move |()| {
+                    category::find(category.id).and_then(move |updated_category| {
                         assert_eq!(updated_category.name, update_name);
                         category::delete(updated_category.id)
                     })
                 })
             });
-            tx.run(ctx).unwrap().ok_or(Error::NotFound)
+            tx.run(ctx)
             // let tx = mdo! {
             //     category =<< category::create(&new_category);
             //     // assert_eq!(category.name, new_name);

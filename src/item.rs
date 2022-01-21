@@ -89,15 +89,14 @@ mod tests {
 
         use crate::category::{Category, NewCategory};
         let tx = with_ctx(|ctx| -> Result<Category, Error> {
-            let maybe_category = crate::category::filter("New Category").run(ctx)?;
-            let category = maybe_category.or_else(|| {
+            let maybe_category = crate::category::filter("New Category").run(ctx);
+            let category = maybe_category.or_else(|_| {
                 crate::category::create(&NewCategory {
                     name: "New Category",
                 })
                 .run(ctx)
-                .unwrap()
             });
-            category.ok_or(Error::NotFound)
+            category
         });
         let category_id = transaction_diesel_mysql::run(&conn, tx)
             .ok()
