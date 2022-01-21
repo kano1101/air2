@@ -75,10 +75,7 @@ mod tests {
     fn categoryのcrudの確認() {
         use crate::category;
         use crate::category::{Category, NewCategory};
-        use crate::transaction::with_ctx;
         use crate::utils::establish_connection;
-        use diesel::result::Error;
-        // use mdo::{iter::*, *};
         use transaction::Transaction;
 
         let conn = establish_connection();
@@ -88,37 +85,20 @@ mod tests {
 
         let new_category = NewCategory { name: new_name };
 
-        let tx = with_ctx(|ctx| -> Result<(), Error> {
-            let tx = category::create(&new_category).and_then(move |category| {
-                assert_eq!(category.name, new_name);
-                let edit_category = Category {
-                    name: update_name.to_string(),
-                    ..category
-                };
-                category::update(edit_category).and_then(move |()| {
-                    category::find(category.id).and_then(move |updated_category| {
-                        assert_eq!(updated_category.name, update_name);
-                        category::delete(updated_category.id)
-                    })
+        let tx = category::create(&new_category).and_then(move |category| {
+            assert_eq!(category.name, new_name);
+            let edit_category = Category {
+                name: update_name.to_string(),
+                ..category
+            };
+            category::update(edit_category).and_then(move |()| {
+                category::find(category.id).and_then(move |updated_category| {
+                    assert_eq!(updated_category.name, update_name);
+                    category::delete(updated_category.id)
                 })
-            });
-            tx.run(ctx)
-            // let tx = mdo! {
-            //     category =<< category::create(&new_category);
-            //     // assert_eq!(category.name, new_name);
-
-            //     let edit_category = Category {
-            //         name: update_name.to_string(),
-            //         ..category
-            //     };
-            //     () =<< category::update(edit_category);
-            //     updated_category =<< category::find(category.id);
-            //     // assert_eq!(updated_category.name, update_name);
-
-            //     ret category::delete(updated_category.id)
-            // };
-            // tx.run(ctx);
+            })
         });
+
         transaction_diesel_mysql::run(&conn, tx).unwrap()
     }
 }
