@@ -76,7 +76,7 @@ mod tests {
         use crate::category;
         use crate::category::{Category, NewCategory};
         use crate::utils::establish_connection;
-        use transaction::Transaction;
+        use transaction::{with_ctx, Transaction};
 
         let conn = establish_connection();
 
@@ -85,20 +85,18 @@ mod tests {
 
         let new_category = NewCategory { name: new_name };
 
-        let tx = category::create(&new_category).and_then(move |category| {
+        let tx = with_ctx(|ctx| {
+            let category = category::create(&new_category).run(ctx)?;
             assert_eq!(category.name, new_name);
             let edit_category = Category {
                 name: update_name.to_string(),
                 ..category
             };
-            category::update(edit_category).and_then(move |()| {
-                category::find(category.id).and_then(move |updated_category| {
-                    assert_eq!(updated_category.name, update_name);
-                    category::delete(updated_category.id)
-                })
-            })
+            category::update(edit_category).run(ctx)?;
+            let updated_category = category::find(category.id).run(ctx)?;
+            assert_eq!(updated_category.name, update_name);
+            category::delete(updated_category.id).run(ctx)
         });
-
         transaction_diesel_mysql::run(&conn, tx).unwrap()
     }
 }
