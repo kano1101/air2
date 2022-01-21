@@ -13,6 +13,7 @@ mod history;
 mod item;
 mod log;
 mod schema;
+mod ui;
 mod utils;
 
 use crate::amazon_log::AmazonBrowserResult;
@@ -79,8 +80,6 @@ async fn main() -> AmazonBrowserResult<()> {
 
     let logs_count = db_logs.len();
     println!("取扱件数は{}件です。", logs_count);
-
-    // iced
 
     // db_logs.iter().for_each(|db_log| {
     //     println!("{:?}", db_log);

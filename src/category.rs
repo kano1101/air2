@@ -21,19 +21,23 @@ use transaction_diesel_mysql::{with_conn, DieselContext};
 type Ctx<'a> = DieselContext<'a, MysqlConnection>;
 type BoxTx<'a, T> = Box<dyn Transaction<Ctx = Ctx<'a>, Item = T, Err = Error> + 'a>;
 
+// pub fn access<'a, R, F: 'a>(f: F) -> BoxTx<'a, R>
+// where
+//     F: Fn(&'a MysqlConnection) -> Result<R, Error>,
+// {
+//     with_conn(f).boxed()
+// }
+
 pub fn all<'a>() -> BoxTx<'a, Vec<Category>> {
     use crate::schema::categories::dsl::categories;
     with_conn(move |cn| categories.load::<Category>(cn)).boxed()
 }
 
 pub fn create<'a>(new: &'a NewCategory) -> BoxTx<'a, Category> {
-    use crate::schema::categories::table;
+    use crate::schema::categories::{id, table};
     with_conn(move |cn| {
         diesel::insert_into(table).values(new).execute(cn)?;
-        table
-            .order(crate::schema::categories::id.desc())
-            .limit(1)
-            .first(cn)
+        table.order(id.desc()).limit(1).first(cn)
     })
     .boxed()
 }
@@ -41,6 +45,11 @@ pub fn create<'a>(new: &'a NewCategory) -> BoxTx<'a, Category> {
 pub fn find<'a>(id: i32) -> BoxTx<'a, Option<Category>> {
     use crate::schema::categories::dsl::categories;
     with_conn(move |cn| categories.find(id).get_result(cn).optional()).boxed()
+}
+
+pub fn filter<'a>(name: &'a str) -> BoxTx<'a, Option<Category>> {
+    use crate::schema::categories::{name, table};
+    with_conn(move |cn| table.filter(name.eq(name)).first(cn).optional()).boxed()
 }
 
 pub fn update<'a>(edit: Category) -> BoxTx<'a, Option<()>> {

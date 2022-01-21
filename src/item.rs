@@ -87,24 +87,27 @@ mod tests {
 
         let conn = establish_connection();
 
-        let category_id;
-
-        {
-            use crate::category::NewCategory;
-            let new_category = NewCategory { name: "CATEGORY" };
-            let category_tx = with_ctx(|ctx| -> Result<i32, Error> {
-                use crate::category;
-                let category = category::create(&new_category).run(ctx)?;
-                Ok(category.id)
+        use crate::category::{Category, NewCategory};
+        let tx = with_ctx(|ctx| -> Result<Category, Error> {
+            let maybe_category = crate::category::filter("New Category").run(ctx)?;
+            let category = maybe_category.or_else(|| {
+                crate::category::create(&NewCategory {
+                    name: "New Category",
+                })
+                .run(ctx)
+                .ok()
             });
-            category_id = transaction_diesel_mysql::run(&conn, category_tx).unwrap()
-        }
+            category.ok_or(Error::NotFound)
+        });
+        let category_id = transaction_diesel_mysql::run(&conn, tx)
+            .ok()
+            .and_then(move |category| Some(category.id));
 
         let new_name = "keen";
         let update_name = "KeenS";
 
         let new_item = NewItem {
-            category_id: category_id,
+            category_id: category_id.unwrap(),
             hash: "0000",
             name: new_name,
         };
@@ -135,11 +138,11 @@ mod tests {
             };
             assert_eq!(updated_item.name, update_name);
 
-            use crate::category;
             let delete_item = updated_item;
-            let delete_category = category::find(delete_item.category_id).run(ctx)?.unwrap();
             item::delete(delete_item.id).run(ctx)?;
-            category::delete(delete_category.id).run(ctx)?;
+            // use crate::category;
+            // let delete_category = category::find(delete_item.category_id).run(ctx)?.unwrap();
+            // category::delete(delete_category.id).run(ctx)?;
 
             Ok(())
         });
