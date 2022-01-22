@@ -26,6 +26,25 @@ use transaction_diesel_mysql::{with_conn, DieselContext};
 type Ctx<'a> = DieselContext<'a, MysqlConnection>;
 type BoxTx<'a, T> = Box<dyn Transaction<Ctx = Ctx<'a>, Item = T, Err = Error> + 'a>;
 
+pub fn test_init<'a>(category_id: i32) -> BoxTx<'a, Item> {
+    use crate::schema::items::{id, table};
+    with_conn(move |cn| {
+        let len = table.load::<Item>(cn).expect("item::test_init").len();
+        if len == 0 {
+            let initial_item = NewItem {
+                category_id: category_id,
+                hash: "1000",
+                name: "Initial Item",
+            };
+            diesel::insert_into(items::table)
+                .values(&initial_item)
+                .execute(cn)?;
+        }
+        items::table.order(id.desc()).limit(1).first(cn)
+    })
+    .boxed()
+}
+
 pub fn all<'a>() -> BoxTx<'a, Vec<Item>> {
     use crate::schema::items::dsl::items;
     with_conn(move |cn| items.load::<Item>(cn)).boxed()
@@ -82,7 +101,7 @@ mod tests {
         let cn = establish_connection();
 
         let tx = with_ctx(|ctx| {
-            let category = crate::category::init().run(ctx);
+            let category = crate::category::test_init().run(ctx);
             let category_id = category.expect("None Categoryが見つかりません。").id;
 
             let new_name = "keen";
@@ -103,11 +122,11 @@ mod tests {
             item::update(edit_item).run(ctx)?;
             let updated_item = item::find(item.id).run(ctx)?;
             assert_eq!(updated_item.name, update_name);
+
             let delete_item = updated_item;
-            item::delete(delete_item.id).run(ctx)
-            // use crate::category;
-            // let delete_category = category::find(delete_item.category_id).run(ctx)?.unwrap();
-            // category::delete(delete_category.id).run(ctx)?;
+            let delete_category = crate::category::find(delete_item.category_id).run(ctx)?;
+            crate::item::delete(delete_item.id).run(ctx);
+            crate::category::delete(delete_category.id).run(ctx)
         });
         transaction_diesel_mysql::run(&cn, tx).unwrap()
     }

@@ -31,9 +31,10 @@ pub fn all<'a>() -> BoxTx<'a, Vec<History>> {
     with_conn(move |cn| histories.load::<History>(cn)).boxed()
 }
 
-pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, History> {
+pub fn create<'a>(new: NewHistory<'a>) -> BoxTx<'a, History> {
     use crate::schema::histories::table;
     with_conn(move |cn| {
+        let new = new.clone(); // TODO: 本当はclone()したくない
         diesel::insert_into(table).values(new).execute(cn)?;
         table
             .order(crate::schema::histories::id.desc())
@@ -43,12 +44,12 @@ pub fn create<'a>(new: &'a NewHistory) -> BoxTx<'a, History> {
     .boxed()
 }
 
-pub fn find<'a>(id: i32) -> BoxTx<'a, Option<History>> {
+pub fn find<'a>(id: i32) -> BoxTx<'a, History> {
     use crate::schema::histories::dsl::histories;
-    with_conn(move |cn| histories.find(id).get_result(cn).optional()).boxed()
+    with_conn(move |cn| histories.find(id).get_result(cn)).boxed()
 }
 
-pub fn update<'a>(edit: History) -> BoxTx<'a, Option<()>> {
+pub fn update<'a>(edit: History) -> BoxTx<'a, ()> {
     use crate::schema::histories::dsl;
     with_conn(move |cn| {
         let edit = edit.clone(); // TODO: 本当はclone()したくない
@@ -60,20 +61,13 @@ pub fn update<'a>(edit: History) -> BoxTx<'a, Option<()>> {
             ))
             .execute(cn)
             .map(|_| ())
-            .optional()
     })
     .boxed()
 }
 
-pub fn delete<'a>(id: i32) -> BoxTx<'a, Option<()>> {
+pub fn delete<'a>(id: i32) -> BoxTx<'a, ()> {
     use crate::schema::histories::dsl::histories;
-    with_conn(move |cn| {
-        diesel::delete(histories.find(id))
-            .execute(cn)
-            .map(|_| ())
-            .optional()
-    })
-    .boxed()
+    with_conn(move |cn| diesel::delete(histories.find(id)).execute(cn).map(|_| ())).boxed()
 }
 
 #[cfg(test)]
@@ -86,84 +80,41 @@ mod tests {
         use crate::utils::establish_connection;
         use diesel::result::Error;
 
-        let conn = establish_connection();
+        let cn = establish_connection();
 
-        let item_id;
+        let tx = with_ctx(|ctx| {
+            let category = crate::category::test_init().run(ctx);
+            let category_id = category.expect("None Categoryが見つかりません。").id;
 
-        {
-            let category_id;
+            let item = crate::item::test_init(category_id).run(ctx);
+            let item_id = item.expect("Itemの読み込みでエラーが発生しました。").id;
 
-            {
-                use crate::category::NewCategory;
-                let new_category = NewCategory { name: "CATEGORY" };
-                let category_tx = with_ctx(|ctx| -> Result<i32, Error> {
-                    use crate::category;
-                    let category = category::create(new_category).run(ctx)?;
-                    Ok(category.id)
-                });
-                category_id = transaction_diesel_mysql::run(&conn, category_tx).unwrap()
-            }
+            let new_price = 42;
+            let update_price = 35;
 
-            use crate::item::NewItem;
-            let new_item = NewItem {
-                category_id: category_id,
-                hash: "1000",
-                name: "Aqun",
+            let new_history = NewHistory {
+                item_id: item_id,
+                price: new_price,
+                purchased_at: "2021-10-01",
             };
-            let item_tx = with_ctx(|ctx| -> Result<i32, Error> {
-                use crate::item;
-                let item = item::create(new_item).run(ctx)?;
-                Ok(item.id)
-            });
-            item_id = transaction_diesel_mysql::run(&conn, item_tx).unwrap()
-        }
 
-        let new_price = 42;
-        let update_price = 35;
-
-        let new_history = NewHistory {
-            item_id: item_id,
-            price: new_price,
-            purchased_at: "2021-10-01",
-        };
-
-        let tx = with_ctx(|ctx| -> Result<(), Error> {
-            let history = history::create(&new_history).run(ctx)?;
-            assert_ne!(history.id, 0);
+            let history = history::create(new_history).run(ctx)?;
             assert_eq!(history.price, new_price);
-
             let edit_history = History {
                 price: update_price,
                 ..history
             };
-            let res = history::update(edit_history).run(ctx)?;
-            match res {
-                None => {
-                    println!("history not found");
-                    return Ok(());
-                }
-                Some(()) => (),
-            };
-            let updated_history = match history::find(history.id).run(ctx)? {
-                None => {
-                    println!("history not found");
-                    return Ok(());
-                }
-                Some(u) => u,
-            };
+            history::update(edit_history).run(ctx)?;
+            let updated_history = history::find(history.id).run(ctx)?;
             assert_eq!(updated_history.price, update_price);
 
-            use crate::category;
-            use crate::item;
             let delete_history = updated_history;
-            let delete_item = item::find(delete_history.item_id).run(ctx)?;
-            let delete_category = category::find(delete_item.category_id).run(ctx)?;
-            history::delete(delete_history.id).run(ctx)?;
-            item::delete(delete_item.id).run(ctx)?;
-            category::delete(delete_category.id).run(ctx)?;
-
-            Ok(())
+            let delete_item = crate::item::find(delete_history.item_id).run(ctx)?;
+            let delete_category = crate::category::find(delete_item.category_id).run(ctx)?;
+            crate::history::delete(delete_history.id).run(ctx)?;
+            crate::item::delete(delete_item.id).run(ctx)?;
+            crate::category::delete(delete_category.id).run(ctx)
         });
-        transaction_diesel_mysql::run(&conn, tx).unwrap()
+        transaction_diesel_mysql::run(&cn, tx).unwrap()
     }
 }

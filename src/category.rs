@@ -22,7 +22,7 @@ use transaction_diesel_mysql::{with_conn, DieselContext};
 type Ctx<'a> = DieselContext<'a, MysqlConnection>;
 type BoxTx<'a, T> = Box<dyn Transaction<Ctx = Ctx<'a>, Item = T, Err = Error> + 'a>;
 
-pub fn init<'a>() -> BoxTx<'a, Category> {
+pub fn test_init<'a>() -> BoxTx<'a, Category> {
     use crate::schema::categories::{id, name, table};
     with_conn(move |cn| {
         let maybe_category: Result<Category, Error> =
