@@ -98,15 +98,14 @@ mod tests {
             });
             category
         });
-        let category_id = transaction_diesel_mysql::run(&conn, tx)
-            .ok()
-            .and_then(move |category| Some(category.id));
+        let category = transaction_diesel_mysql::run(&conn, tx);
+        let category_id = category.expect("New Categoryが見つかりません。").id;
 
         let new_name = "keen";
         let update_name = "KeenS";
 
         let new_item = NewItem {
-            category_id: category_id.unwrap(),
+            category_id: category_id,
             hash: "0000",
             name: new_name,
         };
