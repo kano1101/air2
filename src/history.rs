@@ -78,7 +78,6 @@ mod tests {
         use crate::history::{History, NewHistory};
         use crate::transaction::with_ctx;
         use crate::utils::establish_connection;
-        use diesel::result::Error;
 
         let cn = establish_connection();
 
@@ -100,11 +99,13 @@ mod tests {
 
             let history = history::create(new_history).run(ctx)?;
             assert_eq!(history.price, new_price);
+
             let edit_history = History {
                 price: update_price,
                 ..history
             };
             history::update(edit_history).run(ctx)?;
+
             let updated_history = history::find(history.id).run(ctx)?;
             assert_eq!(updated_history.price, update_price);
 

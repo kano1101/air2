@@ -115,17 +115,19 @@ mod tests {
 
             let item = item::create(new_item).run(ctx)?;
             assert_eq!(item.name, new_name);
+
             let edit_item = Item {
                 name: update_name.to_string(),
                 ..item
             };
             item::update(edit_item).run(ctx)?;
+
             let updated_item = item::find(item.id).run(ctx)?;
             assert_eq!(updated_item.name, update_name);
 
             let delete_item = updated_item;
             let delete_category = crate::category::find(delete_item.category_id).run(ctx)?;
-            crate::item::delete(delete_item.id).run(ctx);
+            crate::item::delete(delete_item.id).run(ctx)?;
             crate::category::delete(delete_category.id).run(ctx)
         });
         transaction_diesel_mysql::run(&cn, tx).unwrap()

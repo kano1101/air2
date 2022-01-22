@@ -95,21 +95,24 @@ mod tests {
 
         let cn = establish_connection();
 
-        let new_name = "keen";
-        let update_name = "KeenS";
-
-        let new_category = NewCategory { name: new_name };
-
         let tx = with_ctx(|ctx| {
+            let new_name = "keen";
+            let update_name = "KeenS";
+
+            let new_category = NewCategory { name: new_name };
+
             let category = category::create(new_category).run(ctx)?;
             assert_eq!(category.name, new_name);
+
             let edit_category = Category {
                 name: update_name.to_string(),
                 ..category
             };
             category::update(edit_category).run(ctx)?;
+
             let updated_category = category::find(category.id).run(ctx)?;
             assert_eq!(updated_category.name, update_name);
+
             let delete_category = updated_category;
             category::delete(delete_category.id).run(ctx)
         });
