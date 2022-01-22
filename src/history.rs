@@ -8,7 +8,8 @@ pub struct History {
     pub purchased_at: String,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Hash, Insertable)]
+// 本当はCopyトレイトを使いたくない
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Default, Hash, Insertable)]
 #[table_name = "histories"]
 pub struct NewHistory<'a> {
     pub item_id: i32,
@@ -97,7 +98,7 @@ mod tests {
                 let new_category = NewCategory { name: "CATEGORY" };
                 let category_tx = with_ctx(|ctx| -> Result<i32, Error> {
                     use crate::category;
-                    let category = category::create(&new_category).run(ctx)?;
+                    let category = category::create(new_category).run(ctx)?;
                     Ok(category.id)
                 });
                 category_id = transaction_diesel_mysql::run(&conn, category_tx).unwrap()
@@ -111,7 +112,7 @@ mod tests {
             };
             let item_tx = with_ctx(|ctx| -> Result<i32, Error> {
                 use crate::item;
-                let item = item::create(&new_item).run(ctx)?;
+                let item = item::create(new_item).run(ctx)?;
                 Ok(item.id)
             });
             item_id = transaction_diesel_mysql::run(&conn, item_tx).unwrap()
@@ -155,7 +156,7 @@ mod tests {
             use crate::category;
             use crate::item;
             let delete_history = updated_history;
-            let delete_item = item::find(delete_history.item_id).run(ctx)?.unwrap();
+            let delete_item = item::find(delete_history.item_id).run(ctx)?;
             let delete_category = category::find(delete_item.category_id).run(ctx)?;
             history::delete(delete_history.id).run(ctx)?;
             item::delete(delete_item.id).run(ctx)?;
