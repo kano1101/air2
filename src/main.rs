@@ -39,7 +39,7 @@ async fn main() -> AmazonBrowserResult<()> {
     };
     println!("start: {}\nend  : {}", diff_range.start(), diff_range.end());
 
-    // ブラウザから、決定した範囲の履歴(amazon_log::Log)をスクレイピングして取得
+    // 決定した範囲の履歴(amazon_log::Log)をスクレイピングして取得
     use amazon_log;
     let amazon_logs: Vec<amazon_log::Log> = difference_log(diff_range).await?;
     amazon_logs.iter().for_each(|log| println!("{:?}", log));
@@ -64,7 +64,7 @@ async fn main() -> AmazonBrowserResult<()> {
     let tx = with_ctx(|ctx| -> Result<(), Error> {
         for new_log in new_logs.iter() {
             // TODO: 言語仕様が不明なためメソッドチェーンは使わず普通のfor文で妥協
-            log::create(&new_log).run(ctx)?;
+            log::create(*new_log).run(ctx)?;
         }
         Ok(())
     });
