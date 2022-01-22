@@ -24,51 +24,51 @@ async fn main() -> AmazonBrowserResult<()> {
     use crate::business::{most_formerly_date, most_recently_log, next_day, yesterday};
     use transaction::with_ctx;
 
-    let most_formerly_date = &most_formerly_date().await?;
-    assert_eq!(most_formerly_date, "2018-01-01");
-
     use crate::utils::establish_connection;
     let cn = establish_connection();
 
-    // DB内の最新情報とブラウザ上の最古の情報からスクレイピング範囲を決定
-    use range::Range;
-    let tx = with_ctx(|ctx| -> Result<log::Log, _> { most_recently_log().run(ctx) });
-    let diff_range = match transaction_diesel_mysql::run(&cn, tx) {
-        Ok(log) => Range::new(&yesterday(), &next_day(log.purchased_at)),
-        Err(_) => Range::new(&yesterday(), most_formerly_date),
-    };
-    println!("start: {}\nend  : {}", diff_range.start(), diff_range.end());
+    // let most_formerly_date = &most_formerly_date().await?;
+    // assert_eq!(most_formerly_date, "2018-01-01");
 
-    // 決定した範囲の履歴(amazon_log::Log)をスクレイピングして取得
-    use amazon_log;
-    let amazon_logs: Vec<amazon_log::Log> = difference_log(diff_range).await?;
-    amazon_logs.iter().for_each(|log| println!("{:?}", log));
-    println!(
-        "{}個の追加が必要な履歴が見つかりました。",
-        amazon_logs.len()
-    );
+    // // DB内の最新情報とブラウザ上の最古の情報からスクレイピング範囲を決定
+    // use range::Range;
+    // let tx = with_ctx(|ctx| -> Result<log::Log, _> { most_recently_log().run(ctx) });
+    // let diff_range = match transaction_diesel_mysql::run(&cn, tx) {
+    //     Ok(log) => Range::new(&yesterday(), &next_day(log.purchased_at)),
+    //     Err(_) => Range::new(&yesterday(), most_formerly_date),
+    // };
+    // println!("start: {}\nend  : {}", diff_range.start(), diff_range.end());
 
-    // amazon_log::Logをlog::Logに変換(厳密にはDBに保存したらlog::Logになるので今はlog::NewLog)
-    use crate::log::NewLog;
-    let new_logs: Vec<NewLog> = amazon_logs
-        .iter()
-        .map(|log| NewLog {
-            hash: &log.hash,
-            name: &log.name,
-            price: log.price,
-            purchased_at: &log.purchased_at,
-        })
-        .collect();
+    // // 決定した範囲の履歴(amazon_log::Log)をスクレイピングして取得
+    // use amazon_log;
+    // let amazon_logs: Vec<amazon_log::Log> = difference_log(diff_range).await?;
+    // amazon_logs.iter().for_each(|log| println!("{:?}", log));
+    // println!(
+    //     "{}個の追加が必要な履歴が見つかりました。",
+    //     amazon_logs.len()
+    // );
 
-    use diesel::result::Error;
-    let tx = with_ctx(|ctx| -> Result<(), Error> {
-        for new_log in new_logs.iter() {
-            // TODO: 言語仕様が不明なためメソッドチェーンは使わず普通のfor文で妥協
-            log::create(*new_log).run(ctx)?;
-        }
-        Ok(())
-    });
-    transaction_diesel_mysql::run(&cn, tx).unwrap();
+    // // amazon_log::Logをlog::Logに変換(厳密にはDBに保存したらlog::Logになるので今はlog::NewLog)
+    // use crate::log::NewLog;
+    // let new_logs: Vec<NewLog> = amazon_logs
+    //     .iter()
+    //     .map(|log| NewLog {
+    //         hash: &log.hash,
+    //         name: &log.name,
+    //         price: log.price,
+    //         purchased_at: &log.purchased_at,
+    //     })
+    //     .collect();
+
+    // use diesel::result::Error;
+    // let tx = with_ctx(|ctx| -> Result<(), Error> {
+    //     for new_log in new_logs.iter() {
+    //         // TODO: 言語仕様が不明なためメソッドチェーンは使わず普通のfor文で妥協
+    //         log::create(*new_log).run(ctx)?;
+    //     }
+    //     Ok(())
+    // });
+    // transaction_diesel_mysql::run(&cn, tx).unwrap();
 
     // DB内の全ログ(log::Log)を取得
     use crate::business::difference_log;

@@ -29,6 +29,7 @@ struct AppState {
 enum AppMessage {
     Loaded(Result<SavedState, LoadError>),
     Saved(Result<(), SaveError>),
+    CategoryListMessage(CategoryListMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -132,7 +133,7 @@ impl Category {
             CategoryState::Idle { edit_button } => Row::new()
                 .spacing(20)
                 .align_items(Align::Center)
-                .push(Text::new(&self.entity.name))
+                .push(Text::new(&self.entity.name).width(Length::Fill))
                 .push(
                     Button::new(edit_button, edit_icon())
                         .on_press(CategoryMessage::Edit)
@@ -216,7 +217,7 @@ impl CategoryListState {
 
         Scrollable::new(scroll)
             .padding(40)
-            .push(Container::new(content).width(Length::Fill).center_x())
+            .push(Container::new(content).width(Length::Fill))
             .into()
     }
 }
@@ -266,6 +267,9 @@ impl Application for App {
                         state.saving = false;
                         saved = true;
                     }
+                    AppMessage::CategoryListMessage(category_list_message) => {
+                        state.category_list_state.update(category_list_message);
+                    }
                     _ => {}
                 }
 
@@ -307,10 +311,25 @@ impl Application for App {
                     .color([0.5, 0.5, 0.5])
                     .horizontal_alignment(HorizontalAlignment::Center);
 
-                // let list: Element<_> = Column::new().spacing(20).push(category_list_state.view()).into();
-                let list: Element<_> = category_list_state.view().into();
+                let list: Element<_> = Column::new()
+                    .spacing(20)
+                    .push(
+                        category_list_state
+                            .view()
+                            .map(move |message| AppMessage::CategoryListMessage(message)),
+                    )
+                    .into();
 
-                Column::new().push(title).align_items(Align::Center).into()
+                let content = Column::new()
+                    .max_width(800)
+                    .spacing(20)
+                    .push(title)
+                    .push(list);
+
+                Container::new(content)
+                    .width(Length::Fill)
+                    .center_x()
+                    .into()
             }
         }
     }
