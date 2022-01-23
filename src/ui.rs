@@ -205,7 +205,21 @@ impl CategoryListState {
                 self.categories.push(Category::default());
             }
             CategoryListMessage::CategoryMessage(i, CategoryMessage::Delete) => {
-                self.categories.remove(i);
+                let maybe_state_with_category = self.categories.get(i);
+                match maybe_state_with_category {
+                    Some(state_with_category) => {
+                        use crate::utils::establish_connection;
+                        use transaction::with_ctx;
+                        let cn = establish_connection();
+                        let tx = with_ctx(|ctx| {
+                            use crate::category::delete;
+                            delete(state_with_category.entity.id).run(ctx)
+                        });
+                        transaction_diesel_mysql::run(&cn, tx).unwrap();
+                        self.categories.remove(i);
+                    }
+                    None => {}
+                }
             }
             CategoryListMessage::CategoryMessage(i, category_message) => {
                 if let Some(category) = self.categories.get_mut(i) {
