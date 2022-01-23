@@ -8,7 +8,10 @@ use iced::{
 };
 
 pub fn run() -> iced::Result {
-    App::run(Settings::default())
+    App::run(Settings {
+        default_font: Some(include_bytes!("../fonts/meiryo.ttc")),
+        ..Settings::default()
+    })
 }
 
 #[derive(Debug)]
@@ -65,12 +68,30 @@ pub enum CategoryMessage {
 }
 
 type Category = StateWith<crate::category::Category, CategoryState>;
+impl Default for Category {
+    fn default() -> Self {
+        use crate::utils::establish_connection;
+        use transaction::with_ctx;
+        let initial_name = "新規カテゴリ";
+        let cn = establish_connection();
+        let tx = with_ctx(|ctx| {
+            use crate::category::{create, NewCategory};
+            let new_category = NewCategory { name: initial_name };
+            create(new_category).run(ctx)
+        });
+        let created_category = transaction_diesel_mysql::run(&cn, tx).unwrap();
+        Category {
+            entity: created_category,
+            state: CategoryState::default(),
+        }
+    }
+}
 
 #[derive(Debug, Default)]
 struct CategoryListState {
     scroll: scrollable::State,
     categories: Vec<Category>,
-    // TODO: 追加ボタンを実装の予定
+    add_button: button::State,
 }
 
 #[derive(Debug, Clone)]
@@ -107,8 +128,9 @@ impl Category {
     fn update(&mut self, message: CategoryMessage) {
         match message {
             CategoryMessage::Edit => {
-                let mut text_input = text_input::State::focused();
-                // text_input.select_all();
+                let text_input = text_input::State::focused();
+                // let mut text_input = text_input::State::focused();
+                // text_input.select_all(); // TODO: useで解決できなかったから一旦置いておく
 
                 self.state = CategoryState::Editing {
                     text_input,
@@ -179,10 +201,9 @@ impl Category {
 impl CategoryListState {
     fn update(&mut self, message: CategoryListMessage) {
         match message {
-            // CategoryListMessage::CreateCategory => {
-            //     self.categories
-            //         .push(Category::default());
-            // }
+            CategoryListMessage::CreateCategory => {
+                self.categories.push(Category::default());
+            }
             CategoryListMessage::CategoryMessage(i, CategoryMessage::Delete) => {
                 self.categories.remove(i);
             }
@@ -199,7 +220,11 @@ impl CategoryListState {
         }
     }
     fn view(&mut self) -> Element<CategoryListMessage> {
-        let CategoryListState { scroll, categories } = self;
+        let CategoryListState {
+            scroll,
+            categories,
+            add_button,
+        } = self;
 
         let categories: Element<_> = categories
             .iter_mut()
@@ -212,8 +237,14 @@ impl CategoryListState {
                 )
             })
             .into();
+        let add_button =
+            Button::new(add_button, Text::new("Add")).on_press(CategoryListMessage::CreateCategory);
 
-        let content = Column::new().max_width(800).spacing(20).push(categories);
+        let content = Column::new()
+            .max_width(800)
+            .spacing(20)
+            .push(categories)
+            .push(add_button);
 
         Scrollable::new(scroll)
             .padding(40)
