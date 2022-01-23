@@ -22,16 +22,17 @@ enum App {
 
 #[derive(Debug, Default)]
 struct AppState {
-    // TODO: dirty消したので戻す予定
-    // dirty: bool,
     saving: bool,
+    dirty: bool,
     category_list_state: CategoryListState,
+    save_button: button::State,
 }
 
 #[derive(Debug, Clone)]
 enum AppMessage {
     Loaded(Result<SavedState, LoadError>),
     Saved(Result<(), SaveError>),
+    Save,
     CategoryListMessage(CategoryListMessage),
 }
 
@@ -73,15 +74,20 @@ impl Default for Category {
         use crate::utils::establish_connection;
         use transaction::with_ctx;
         let initial_name = "新規カテゴリ";
-        let cn = establish_connection();
-        let tx = with_ctx(|ctx| {
-            use crate::category::{create, NewCategory};
-            let new_category = NewCategory { name: initial_name };
-            create(new_category).run(ctx)
-        });
-        let created_category = transaction_diesel_mysql::run(&cn, tx).unwrap();
+        // let cn = establish_connection();
+        // let tx = with_ctx(|ctx| {
+        //     use crate::category::{create, NewCategory};
+        //     let new_category = NewCategory { name: initial_name };
+        //     create(new_category).run(ctx)
+        // });
+        // let created_category = transaction_diesel_mysql::run(&cn, tx).unwrap();
+        let new_category = category::Category {
+            id: 0,
+            name: initial_name.to_string(),
+        };
         Category {
-            entity: created_category,
+            // entity: created_category,
+            entity: new_category,
             state: CategoryState::default(),
         }
     }
@@ -113,9 +119,7 @@ enum LoadError {
 
 #[derive(Debug, Clone)]
 enum SaveError {
-    FileError,
-    WriteError,
-    FormatError,
+    DatabaseError,
 }
 
 impl Category {
@@ -208,14 +212,14 @@ impl CategoryListState {
                 let maybe_state_with_category = self.categories.get(i);
                 match maybe_state_with_category {
                     Some(state_with_category) => {
-                        use crate::utils::establish_connection;
-                        use transaction::with_ctx;
-                        let cn = establish_connection();
-                        let tx = with_ctx(|ctx| {
-                            use crate::category::delete;
-                            delete(state_with_category.entity.id).run(ctx)
-                        });
-                        transaction_diesel_mysql::run(&cn, tx).unwrap();
+                        // use crate::utils::establish_connection;
+                        // use transaction::with_ctx;
+                        // let cn = establish_connection();
+                        // let tx = with_ctx(|ctx| {
+                        //     use crate::category::delete;
+                        //     delete(state_with_category.entity.id).run(ctx)
+                        // });
+                        // transaction_diesel_mysql::run(&cn, tx).unwrap();
                         self.categories.remove(i);
                     }
                     None => {}
@@ -226,10 +230,6 @@ impl CategoryListState {
                     category.update(category_message);
                 }
             }
-            // CategoryListMessage::Saved(_) => {
-            //     state.saving = false;
-            //     saved = true;
-            // }
             _ => {}
         }
     }
@@ -280,7 +280,12 @@ impl Application for App {
     }
 
     fn title(&self) -> String {
-        format!("App")
+        let dirty = match self {
+            App::Loading => false,
+            App::Loaded(state) => state.dirty,
+        };
+
+        format!("App{} - Iced", if dirty { "*" } else { "" })
     }
 
     fn update(&mut self, message: AppMessage, _clipboard: &mut Clipboard) -> Command<AppMessage> {
@@ -305,40 +310,34 @@ impl Application for App {
                 Command::none()
             }
             App::Loaded(state) => {
-                let mut saved = false;
-
                 match message {
-                    AppMessage::Saved(_) => {
-                        state.saving = false;
-                        saved = true;
-                    }
                     AppMessage::CategoryListMessage(category_list_message) => {
                         state.category_list_state.update(category_list_message);
+                    }
+                    AppMessage::Save => {
+                        state.dirty = true;
+                    }
+                    AppMessage::Saved(_) => {
+                        state.saving = false;
                     }
                     _ => {}
                 }
 
-                Command::none()
-                // if !saved {
-                //     state.dirty = true;
-                // }
+                if state.dirty && !state.saving {
+                    state.dirty = false;
+                    state.saving = true;
 
-                // if state.dirty && !state.saving {
-                //     state.dirty = false;
-                //     state.saving = true;
-
-                //     Command::perform(
-                //         SavedState {
-                //             input_value: state.input_value.clone(),
-                //             filter: state.filter,
-                //             tasks: state.tasks.clone(),
-                //         }
-                //         .save(),
-                //         Message::Saved,
-                //     )
-                // } else {
-                //     Command::none()
-                // }
+                    println!("セーブします。");
+                    Command::perform(
+                        SavedState {
+                            categories: state.category_list_state.categories.clone(),
+                        }
+                        .save(),
+                        AppMessage::Saved,
+                    )
+                } else {
+                    Command::none()
+                }
             }
         }
     }
@@ -348,6 +347,7 @@ impl Application for App {
             App::Loading => loading_message(),
             App::Loaded(AppState {
                 category_list_state,
+                save_button,
                 ..
             }) => {
                 let title = Text::new("todos")
@@ -355,6 +355,9 @@ impl Application for App {
                     .size(100)
                     .color([0.5, 0.5, 0.5])
                     .horizontal_alignment(HorizontalAlignment::Center);
+
+                let save_button =
+                    Button::new(save_button, Text::new("Save")).on_press(AppMessage::Save);
 
                 let list: Element<_> = Column::new()
                     .spacing(20)
@@ -369,6 +372,7 @@ impl Application for App {
                     .max_width(800)
                     .spacing(20)
                     .push(title)
+                    .push(save_button)
                     .push(list);
 
                 Container::new(content)
@@ -434,13 +438,50 @@ impl SavedState {
     }
 
     async fn save(self) -> Result<(), SaveError> {
+        use crate::category;
         use crate::utils::establish_connection;
         use transaction::with_ctx;
 
-        let cn = establish_connection();
-        let tx = with_ctx(|ctx| crate::category::all().run(ctx));
+        let new_categories: Vec<category::Category> = self
+            .categories
+            .into_iter()
+            // .filter(|state_with_category| state_with_category.entity.id == 0)
+            // .map(|state_with_category| NewCategory {
+            //     name: state_with_category.entity.name,
+            // })
+            .map(|state_with_category| state_with_category.entity)
+            .collect();
+        println!("{}件のnew_categoriesがあります。", new_categories.len());
 
-        Ok(())
+        let cn = establish_connection();
+        let tx = with_ctx(|ctx| {
+            category::clear().run(ctx)?;
+            let maybe_saved_categories = new_categories
+                .iter()
+                .map(|new_category| category::create(new_category.clone()).run(ctx))
+                .collect::<Vec<Result<category::Category, _>>>();
+            println!(
+                "{}件のmaybe_saved_categoriesがあります。",
+                maybe_saved_categories.len()
+            );
+            let is_err = maybe_saved_categories
+                .iter()
+                .any(|maybe_saved_category| maybe_saved_category.is_err());
+            if is_err {
+                Err(diesel::result::Error::NotFound)
+            } else {
+                let saved_categories = maybe_saved_categories
+                    .into_iter()
+                    .map(|saved_category_in_result| saved_category_in_result.unwrap())
+                    .collect::<Vec<category::Category>>();
+                println!("{}件のsaved_categoriesがあります。", saved_categories.len());
+                Ok(saved_categories)
+            }
+        });
+        let result = transaction_diesel_mysql::run(&cn, tx)
+            .map_err(|_| SaveError::DatabaseError)
+            .map(|_| ());
+        result
     }
 }
 

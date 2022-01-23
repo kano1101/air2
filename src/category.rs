@@ -42,15 +42,36 @@ pub fn test_init<'a>() -> BoxTx<'a, Category> {
     .boxed()
 }
 
+pub fn clear<'a>() -> BoxTx<'a, ()> {
+    use crate::schema::categories::dsl::categories;
+    with_conn(move |cn| diesel::delete(categories).execute(cn).map(|_| ())).boxed()
+}
+
 pub fn all<'a>() -> BoxTx<'a, Vec<Category>> {
     use crate::schema::categories::dsl::categories;
     with_conn(move |cn| categories.load::<Category>(cn)).boxed()
 }
 
-pub fn create<'a>(new: NewCategory<'a>) -> BoxTx<'a, Category> {
+mod new {
+    use super::{BoxTx, Category, NewCategory};
+    use diesel::prelude::*;
+    use transaction::prelude::*;
+    use transaction_diesel_mysql::with_conn;
+    pub fn create<'a>(new: NewCategory<'a>) -> BoxTx<'a, Category> {
+        use crate::schema::categories::{id, table};
+        with_conn(move |cn| {
+            let new = new.clone(); // TODO: 本当はclone()したくない
+            diesel::insert_into(table).values(&new).execute(cn)?;
+            table.order(id.desc()).limit(1).first(cn)
+        })
+        .boxed()
+    }
+}
+
+pub fn create<'a>(new: Category) -> BoxTx<'a, Category> {
     use crate::schema::categories::{id, table};
     with_conn(move |cn| {
-        let new = new.clone(); // TODO: 本当はclone()したくない
+        let new = NewCategory { name: &new.name };
         diesel::insert_into(table).values(&new).execute(cn)?;
         table.order(id.desc()).limit(1).first(cn)
     })
@@ -101,7 +122,7 @@ mod tests {
 
             let new_category = NewCategory { name: new_name };
 
-            let category = category::create(new_category).run(ctx)?;
+            let category = category::new::create(new_category).run(ctx)?;
             assert_eq!(category.name, new_name);
 
             let edit_category = Category {
