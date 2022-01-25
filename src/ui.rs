@@ -74,13 +74,6 @@ impl Default for Category {
         use crate::utils::establish_connection;
         use transaction::with_ctx;
         let initial_name = "新規カテゴリ";
-        // let cn = establish_connection();
-        // let tx = with_ctx(|ctx| {
-        //     use crate::category::{create, NewCategory};
-        //     let new_category = NewCategory { name: initial_name };
-        //     create(new_category).run(ctx)
-        // });
-        // let created_category = transaction_diesel_mysql::run(&cn, tx).unwrap();
         let new_category = category::Category {
             id: 0,
             name: initial_name.to_string(),
@@ -212,14 +205,6 @@ impl CategoryListState {
                 let maybe_state_with_category = self.categories.get(i);
                 match maybe_state_with_category {
                     Some(state_with_category) => {
-                        // use crate::utils::establish_connection;
-                        // use transaction::with_ctx;
-                        // let cn = establish_connection();
-                        // let tx = with_ctx(|ctx| {
-                        //     use crate::category::delete;
-                        //     delete(state_with_category.entity.id).run(ctx)
-                        // });
-                        // transaction_diesel_mysql::run(&cn, tx).unwrap();
                         self.categories.remove(i);
                     }
                     None => {}
