@@ -20,14 +20,11 @@ mod utils;
 // use crate::amazon_log::AmazonBrowserResult;
 
 fn main() -> iced::Result {
-    use crate::business::{get_all_logs_from_db, get_difference_logs_from_amazon};
+    use crate::business::{get_all_logs_from_db, scrape_logs_and_save_to_db_if_needed};
     use crate::utils::establish_connection;
     let cn = establish_connection();
 
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(async {
-        get_difference_logs_from_amazon(&cn).await;
-    });
+    // scrape_logs_and_save_to_db_if_needed(&cn);
 
     let db_logs = get_all_logs_from_db(&cn);
 

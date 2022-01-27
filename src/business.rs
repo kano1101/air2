@@ -51,6 +51,14 @@ pub async fn difference_log(diff_range: Range) -> AmazonBrowserResult<Vec<amazon
     Ok(logs)
 }
 
+pub fn scrape_logs_and_save_to_db_if_needed(cn: &MysqlConnection) -> Result<(), ()> {
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        get_difference_logs_from_amazon(cn).await.unwrap();
+    });
+    Ok(())
+}
+
 pub async fn get_difference_logs_from_amazon(cn: &MysqlConnection) -> AmazonBrowserResult<()> {
     // use crate::business::{most_formerly_date, most_recently_log, next_day, yesterday};
 
